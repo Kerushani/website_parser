@@ -1,5 +1,3 @@
-import axios from "axios";
-import * as cheerio from "cheerio";
 import puppeteer from "puppeteer";
 
 // Task: Migrate product information from the Micro Focus page
@@ -20,52 +18,52 @@ import puppeteer from "puppeteer";
 const url = "https://www.microfocus.com/en-us/products?trial=true";
 
 const fetchData = async () => {
+  let browser;
   try {
-    const response = await axios.get(url);
-    console.log("Response successful");
-  } catch (error) {
-    console.error(error);
-  }
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
+    browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: "networkidle2" });
 
-  await page.goto(url, { waitUntil: "networkidle2" });
+    const products = await page.evaluate(() => {
+      const items = [];
+      const productContainer = document.querySelectorAll(".uk-card");
 
-  const products = await page.evaluate(() => {
-    const items = [];
-    const productContainer = document.querySelectorAll(".uk-card");
+      productContainer.forEach((card) => {
+        const productName = card
+          .querySelector("a.block-header")
+          ?.innerText.trim();
+        const description = card
+          .querySelector(".description p")
+          ?.innerText.trim();
+        const freeTrial = card.querySelector(".cta-buttons a")?.href || "";
+        const supportUrl = card.querySelector('a[href*="support"]')?.href || "";
+        const communityUrl =
+          card.querySelector('a[href*="community"]')?.href || "";
+        const startingLetter = productName
+          ? productName.charAt(0).toUpperCase()
+          : "";
 
-    productContainer.forEach((card) => {
-      const productName = card
-        .querySelector("a.block-header")
-        ?.innerText.trim();
-      const description = card
-        .querySelector(".description p")
-        ?.innerText.trim();
-      const freeTrialUrl = card.querySelector(".cta-buttons a")?.href || "";
-      const supportUrl = card.querySelector('a[href*="support"]')?.href || "";
-      const communityUrl =
-        card.querySelector('a[href*="community"]')?.href || "";
-      const startingLetter = productName
-        ? productName.charAt(0).toUpperCase()
-        : "";
-
-      items.push({
-        productName: productName,
-        startingLetter: startingLetter,
-        description: description,
-        freeTrialUrl: freeTrialUrl,
-        supportUrl: supportUrl,
-        communityUrl: communityUrl,
+        items.push({
+          productName: productName,
+          startingLetter: startingLetter,
+          description: description,
+          freeTrial: freeTrial,
+          supportUrl: supportUrl,
+          communityUrl: communityUrl,
+        });
       });
+
+      return items;
     });
 
-    return items;
-  });
-
-  console.log(JSON.stringify(products, null, 4));
-
-  await browser.close();
+    console.log(JSON.stringify(products, null, 4));
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
 };
 
 fetchData();
